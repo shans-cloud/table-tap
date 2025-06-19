@@ -1,0 +1,80 @@
+{% extends "base.html" %}
+
+{% block title %}Orders - {{ restaurant.name }}{% endblock %}
+
+{% block restaurant_content %}
+<section class="py-5">
+    <div class="container">
+        <h2 class="mb-4 text-center">All Orders</h2>
+
+        {% if orders %}
+        <div class="table-responsive">
+            <table class="table table-bordered table-striped">
+                <thead class="table-light">
+                    <tr>
+                        <th>Order ID</th>
+                        <th>Table</th>
+                        <th>Status</th>
+                        <th>Created</th>
+                        <th>Items</th>
+                        <th>Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for order in orders %}
+                    <tr>
+                        <td>#{{ order.id }}</td>
+                        <td>Table {{ order.table.table_number }}</td>
+                        <td>
+                            <select class="form-select form-select-sm status-dropdown" data-order-id="{{ order.id }}">
+                                {% for value, label in order.STATUS_CHOICES %}
+                                <option value="{{ value }}" {% if order.status == value %}selected{% endif %}>{{ label }}
+                                </option>
+                                {% endfor %}
+                            </select>
+                        </td>
+                        <td>{{ order.created_at|date:"M d, H:i" }}</td>
+                        <td>
+                            <ul class="list-unstyled mb-0">
+                                {% for item in order.order_items.all %}
+                                <li>{{ item.quantity }} × {{ item.menu_item.name }}</li>
+                                {% endfor %}
+                            </ul>
+                        </td>
+                        <td>${{ order.get_total|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-center">No orders have been placed yet.</p>
+        {% endif %}
+    </div>
+</section>
+
+<script type="module">
+    const CSRF_TOKEN = "{{ csrf_token }}";
+
+    document.querySelectorAll(".status-dropdown").forEach(select => {
+        select.addEventListener("change", async () => {
+            const orderId = select.dataset.orderId;
+            const newStatus = select.value;
+
+            const response = await fetch(`/tabletap/api/orders/${orderId}/`, {
+                method: "PATCH",
+                headers: {
+                    "Content-Type": "application/json",
+                    "X-CSRFToken": CSRF_TOKEN,
+                },
+                body: JSON.stringify({ status: newStatus }),
+            });
+
+            if (!response.ok) {
+                const errorText = await response.text();
+                alert("Failed to update status:\n" + errorText);
+            }
+        });
+    });
+</script>
+{% endblock %}

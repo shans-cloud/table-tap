@@ -1,0 +1,43 @@
+{% extends "home_base.html" %}
+
+{% block title %}{{ restaurant.name }} | TableTap{% endblock %}
+
+{% block content %}
+<div class="d-flex w-100">
+    <!-- Sidebar -->
+    <div class="sidebar border-end d-flex flex-column p-3 bg-light">
+        <div class="d-grid gap-2">
+            <a class="btn btn-outline-warning text-start {% if request.resolver_match.url_name == 'restaurant_dashboard' %}active{% endif %}"
+                href="{% url 'restaurant_dashboard' restaurant.id %}">
+                <i class="bi bi-house-door me-2"></i> Dashboard
+            </a>
+
+            <a class="btn btn-outline-warning text-start {% if request.resolver_match.url_name == 'menu_list' %}active{% endif %}"
+                href="{% url 'menu_list' restaurant.id %}">
+                <i class="bi bi-card-list me-2"></i> Menus
+            </a>
+
+            <a class="btn btn-outline-warning text-start {% if request.resolver_match.url_name == 'table_list' %}active{% endif %}"
+                href="{% url 'table_list' restaurant.id %}">
+                <i class="bi bi-grid-fill me-2"></i> Tables
+            </a>
+
+            <a class="btn btn-outline-warning text-start" href="{% url 'orders' restaurant.id %}">
+                <i class="bi bi-receipt-cutoff me-2"></i> Orders
+            </a>
+
+            <a class="btn btn-outline-warning text-start {% if request.resolver_match.url_name == 'home' %}active{% endif %}"
+                href="{% url 'home' %}">
+                <i class="bi bi-house-door me-2"></i> Restaurants
+            </a>
+        </div>
+    </div>
+
+    <!-- Main Content -->
+    <div class="main-content flex-grow-1 p-4 bg-white">
+        <h1 class="text-center mb-4">{{ restaurant.name }}</h1>
+        {% block restaurant_content %}{% endblock %}
+    </div>
+</div>
+
+{% endblock %}

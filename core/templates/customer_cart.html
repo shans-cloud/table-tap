@@ -1,0 +1,169 @@
+{% extends "base_customer.html" %}
+
+{% block title %}Your Cart{% endblock %}
+
+{% block customer_content %}
+<section class="py-5">
+    <div class="container">
+        <h2 class="mb-4 text-center">Cart - Table {{ order.table.table_number }}</h2>
+
+        {% if order_items %}
+        <div class="table-responsive">
+
+            <table class="table table-bordered">
+                <thead class="table-light">
+                    <tr>
+                        <th scope="col">Item</th>
+                        <th scope="col" class="text-center">Qty</th>
+                        <th scope="col" class="text-end">Actions</th>
+                        <th scope="col" class="text-end">Unit Price</th>
+                        <th scope="col" class="text-end">Total</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for item in order_items %}
+
+                    <tr>
+                        <td>{{ item.menu_item.name }}</td>
+                        <td class="text-center">
+                            <div class="d-flex justify-content-center align-items-center gap-3">
+                                <button class="btn btn-sm btn-warning qty-decrease rounded-pill"
+                                    data-id="{{ item.id }}">
+                                    <i class="bi bi-dash"></i>
+                                </button>
+                                <span class="qty-value">{{ item.quantity }}</span>
+                                <button class="btn btn-sm btn-success qty-increase rounded-pill"
+                                    data-id="{{ item.id }}">
+                                    <i class="bi bi-plus"></i>
+                                </button>
+                            </div>
+                        </td>
+                        <td class="text-center">
+                            <button class="btn btn-sm btn-danger delete-item rounded-pill" data-id="{{ item.id }}">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                        <td class="text-end">${{ item.menu_item.price|floatformat:2 }}</td>
+                        <td class="text-end">${{ item.price|floatformat:2 }}</td>
+                    </tr>
+                    {% endfor %}
+                </tbody>
+                <tfoot class="table-light">
+                    <tr>
+                        <th colspan="4" class="text-end">Total</th>
+                        <th class="text-end">${{ total|floatformat:2 }}</th>
+                    </tr>
+                </tfoot>
+            </table>
+        </div>
+        {% else %}
+        <p class="text-center">Your cart is currently empty.</p>
+        {% endif %}
+
+        <div class="text-center mt-4 d-flex justify-content-center gap-3 flex-wrap">
+            <a href="{% url 'table_qr_redirect' restaurant.id table.id %}" class="btn btn-outline-primary">
+                Back to Menu
+            </a>
+            <button id="sendToKitchenBtn" class="btn btn-outline-success">
+                Send to Kitchen
+            </button>
+        </div>
+    </div>
+</section>
+
+<script type="module">
+    const API_ORDER_ITEMS = "/tabletap/api/order-items/";
+    const CSRF_TOKEN = "{{ csrf_token }}";
+    async function updateQuantity(id, newQty) {
+        if (newQty < 1) {
+            alert("Minimum quantity is 1.");
+            return;
+        }
+
+        const response = await fetch(`${API_ORDER_ITEMS}${id}/`, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": CSRF_TOKEN,
+            },
+            body: JSON.stringify({ quantity: newQty }),
+        });
+
+        if (!response.ok) {
+            const err = await response.text();
+            alert("Failed to update quantity.\n" + err);
+            return;
+        }
+
+        // Refresh the page to reflect the new totals
+        location.reload();
+    }
+
+    async function deleteItem(id) {
+        const response = await fetch(`${API_ORDER_ITEMS}${id}/`, {
+            method: "DELETE",
+            headers: {
+                "X-CSRFToken": CSRF_TOKEN,
+            }
+        });
+
+        if (!response.ok) {
+            const err = await response.text();
+            alert("Failed to delete item.\n" + err);
+            return;
+        }
+
+        location.reload();
+    }
+
+    document.querySelectorAll(".qty-increase").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const row = btn.closest("tr");
+            const id = btn.dataset.id;
+            const currentQty = parseInt(row.querySelector(".qty-value").textContent);
+            updateQuantity(id, currentQty + 1);
+        });
+    });
+
+    document.querySelectorAll(".qty-decrease").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const row = btn.closest("tr");
+            const id = btn.dataset.id;
+            const currentQty = parseInt(row.querySelector(".qty-value").textContent);
+            updateQuantity(id, currentQty - 1);
+        });
+    });
+
+    document.querySelectorAll(".delete-item").forEach(btn => {
+        btn.addEventListener("click", () => {
+            const id = btn.dataset.id;
+            if (confirm("Are you sure you want to remove this item?")) {
+                deleteItem(id);
+            }
+        });
+    });
+
+    document.getElementById("sendToKitchenBtn").addEventListener("click", async () => {
+        const orderId = "{{ order.id }}";
+
+        const response = await fetch(`/tabletap/api/orders/${orderId}/`, {
+            method: "PATCH",
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": CSRF_TOKEN,
+            },
+            body: JSON.stringify({ status: "PREPARING" }),
+        });
+
+        if (!response.ok) {
+            const err = await response.text();
+            alert("Failed to update order status.\n" + err);
+            return;
+        }
+
+        alert("Order sent to kitchen!");
+        location.reload();
+    });
+
+</script>
+{% endblock %}

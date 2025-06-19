@@ -1,0 +1,252 @@
+{% extends "base.html" %}
+
+{% block title %}{{ restaurant.name }}'s Menus{% endblock %}
+
+{% block restaurant_content %}
+<section class="py-5 w-100">
+    <div class="container">
+
+        <h2 class="mb-4">{{ restaurant.name }}'s Menus</h2>
+
+        {% if table %}
+        <p>You are viewing menus for Table {{ table.table_number }}</p>
+        {% endif %}
+
+        <!-- # ------------ Alert (timed) ------------ # -->
+        <div id="crudAlert" class="alert alert-dismissible fade show mt-2 d-none" role="alert">
+            <span id="crudAlertMsg"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+
+        <!-- # ------------ Menu Table ------------ # -->
+        <table class="table table-hover">
+            <thead>
+                <tr>
+                    <th>Name</th>
+                    <th>Description</th>
+                    <th>Publish</th>
+                    <th>Actions</th>
+                </tr>
+            </thead>
+            <tbody id="menuTableBody">
+                {% for menu in menus %}
+                <tr data-id="{{ menu.id }}">
+                    <td class="menu-name">
+                        <a href="{% url 'menu_detail' restaurant.id menu.id %}"
+                            class="fw-semibold text-decoration-none menu-link">
+                            {{ menu.name }}
+                        </a>
+                    </td>
+                    <td class="menu-description">{{ menu.description }}</td>
+                    <td>
+                        <div class="form-check">
+                            <input class="form-check-input publish-checkbox" type="checkbox" data-id="{{ menu.id }}"
+                                id="publish-{{ menu.id }}" {% if menu.is_published %}checked{% endif %}>
+                            <label class="form-check-label visually-hidden" for="publish-{{ menu.id }}">Toggle
+                                published</label>
+                        </div>
+                    </td>
+                    <td>
+                        <button class="btn btn-sm btn-warning me-1 edit-row">Edit</button>
+                        <button class="btn btn-sm btn-danger del-row">Delete</button>
+                    </td>
+                </tr>
+                {% empty %}
+                <tr>
+                    <td colspan="4"><em>No menus available yet</em></td>
+                </tr>
+                {% endfor %}
+            </tbody>
+        </table>
+        <button class="btn btn-primary w-100 mb-4" id="addMenuBtn">Add Menu</button>
+
+        <!-- # ------------ Modal ------------ # -->
+        <div class="modal fade" id="crudModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form id="crudForm">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="crudModalLabel">Add Menu</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="menuName" class="form-label fw-semibold">Menu Name</label>
+                                <input type="text" class="form-control" id="menuName" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="menuDescription" class="form-label fw-semibold">Description</label>
+                                <textarea class="form-control" id="menuDescription" rows="2"></textarea>
+                            </div>
+                        </div>
+
+                        <input type="hidden" id="rowId">
+
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary" id="saveBtn">Save</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- # ------------ Template ------------ # -->
+        <template id="menuRowTmpl">
+            <tr data-id="">
+                <td>
+                    <a href="#" class="fw-semibold text-decoration-none menu-link"></a>
+                </td>
+                <td class="menu-description"></td>
+                <td>
+                    <div class="form-check justify-content-center">
+                        <input class="form-check-input publish-checkbox" type="checkbox">
+                        <label class="form-check-label visually-hidden">Toggle published</label>
+                    </div>
+                </td>
+                <td>
+                    <button class="btn btn-sm btn-warning me-1 edit-row">Edit</button>
+                    <button class="btn btn-sm btn-danger del-row">Delete</button>
+                </td>
+            </tr>
+        </template>
+
+    </div>
+</section>
+
+<script type="module">
+    const API_URL = "/tabletap/api/menus/";
+    const RESTAURANT_ID = "{{ restaurant.id }}";
+    const CSRF_TOKEN = "{{ csrf_token }}";
+
+    const crudAlert = document.getElementById("crudAlert");
+    const crudAlertMsg = document.getElementById("crudAlertMsg");
+    const modal = bootstrap.Modal.getOrCreateInstance(document.getElementById("crudModal"));
+    const crudForm = document.getElementById("crudForm");
+    const rowId = document.getElementById("rowId");
+    const menuName = document.getElementById("menuName");
+    const menuDescription = document.getElementById("menuDescription");
+    const menuTableBody = document.getElementById("menuTableBody");
+    const menuRowTmpl = document.getElementById("menuRowTmpl");
+
+    function alertMsg(txt, ok = true) {
+        crudAlertMsg.textContent = txt;
+        crudAlert.classList.remove("d-none", "alert-success", "alert-danger");
+        crudAlert.classList.add(ok ? "alert-success" : "alert-danger");
+        setTimeout(() => crudAlert.classList.add("d-none"), 5000);
+    }
+
+    function getOpts(method, body = null) {
+        return {
+            method,
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": CSRF_TOKEN,
+            },
+            body: body ? JSON.stringify(body) : null,
+        };
+    }
+
+    function openModal(data = null) {
+        rowId.value = data?.id ?? "";
+        menuName.value = data?.name ?? "";
+        menuDescription.value = data?.description ?? "";
+        document.getElementById("crudModalLabel").textContent = data ? "Edit Menu" : "Add Menu";
+        modal.show();
+    }
+
+    document.getElementById("addMenuBtn").onclick = () => openModal();
+
+    crudForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const id = rowId.value;
+        const method = id ? "PUT" : "POST";
+        const url = id ? `${API_URL}${id}/` : API_URL;
+
+        const body = {
+            name: menuName.value,
+            description: menuDescription.value,
+            restaurant: RESTAURANT_ID,
+        };
+
+        try {
+            const res = await fetch(url, getOpts(method, body));
+            if (!res.ok) throw Error();
+            const data = await res.json();
+
+            if (id) {
+                const tr = document.querySelector(`tr[data-id='${id}']`);
+                const link = tr.querySelector(".menu-link");
+                link.textContent = data.name;
+                link.href = `/tabletap/restaurant/${RESTAURANT_ID}/menu/${data.id}/`;
+                tr.querySelector(".menu-description").textContent = data.description;
+            } else {
+                const clone = menuRowTmpl.content.cloneNode(true);
+                const tr = clone.querySelector("tr");
+                tr.dataset.id = data.id;
+
+                const link = tr.querySelector(".menu-link");
+                link.textContent = data.name;
+                link.href = `/tabletap/restaurant/${RESTAURANT_ID}/menu/${data.id}/`;
+
+                tr.querySelector(".menu-description").textContent = data.description;
+
+                const checkbox = tr.querySelector(".publish-checkbox");
+                const label = tr.querySelector(".form-check-label");
+                checkbox.checked = data.is_published;
+                checkbox.dataset.id = data.id;
+                const checkboxId = `publish-${data.id}`;
+                checkbox.id = checkboxId;
+                label.setAttribute("for", checkboxId);
+
+                menuTableBody.appendChild(clone);
+            }
+
+            modal.hide();
+            alertMsg("Saved ✔");
+        } catch {
+            alertMsg("Save failed ❌", false);
+        }
+    };
+
+    document.addEventListener("click", async (e) => {
+        if (e.target.classList.contains("edit-row")) {
+            const tr = e.target.closest("tr");
+            const id = tr.dataset.id;
+            const res = await fetch(`${API_URL}${id}/`);
+            const data = await res.json();
+            openModal(data);
+        }
+
+        if (e.target.classList.contains("del-row")) {
+            if (!confirm("Really delete?")) return;
+            const tr = e.target.closest("tr");
+            const id = tr.dataset.id;
+            try {
+                const res = await fetch(`${API_URL}${id}/`, getOpts("DELETE"));
+                if (!res.ok) throw Error();
+                tr.remove();
+                alertMsg("Deleted ✔");
+            } catch {
+                alertMsg("Delete failed ❌", false);
+            }
+        }
+
+        if (e.target.classList.contains("publish-checkbox")) {
+            const checkbox = e.target;
+            const id = checkbox.dataset.id;
+            const newState = checkbox.checked;
+            try {
+                const res = await fetch(`${API_URL}${id}/`, getOpts("PATCH", { is_published: newState }));
+                if (!res.ok) throw Error();
+                const data = await res.json();
+                alertMsg(data.is_published ? "Menu published ✔" : "Menu unpublished ✔");
+            } catch {
+                checkbox.checked = !newState;
+                alertMsg("Failed to update publish status ❌", false);
+            }
+        }
+    });
+</script>
+{% endblock %}

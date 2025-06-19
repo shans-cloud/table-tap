@@ -1,0 +1,31 @@
+{% extends "base_customer.html" %}
+
+{% block title %}{{ restaurant.name }} - Menu{% endblock %}
+
+{% block customer_content %}
+<section class="py-4">
+    <div class="container">
+        <h2 class="mb-3">{{ restaurant.name }}</h2>
+        <p class="text-muted">You’re ordering from <strong>Table {{ table.table_number }}</strong></p>
+
+        {% if menus %}
+        {% for menu in menus %}
+        <div class="card mb-4">
+            <div class="card-header">
+                <a href="{% url 'customer_menu_detail' restaurant.id table.id menu.id %}">
+                    <h4 class="mb-0">{{ menu.name }}</h4>
+                </a>
+            </div>
+            {% if menu.description %}
+            <div class="card-body">
+                <p>{{ menu.description }}</p>
+            </div>
+            {% endif %}
+        </div>
+        {% endfor %}
+        {% else %}
+        <p>No menus available.</p>
+        {% endif %}
+    </div>
+</section>
+{% endblock %}

@@ -1,0 +1,15 @@
+{% extends "home_base.html" %}
+{% load static %}
+{% block title %}Welcome to TableTap{% endblock %}
+
+{% block content %}
+<main class="d-flex flex-grow-1 justify-content-center align-items-center text-center">
+    <!-- <img src="{% static 'core/images/hero.jpg' %}" alt="TableTap"
+        class="img-fluid rounded shadow"> -->
+    <div>
+        <h1 class="display-4 fw-semibold mb-4">TableTap</h1>
+        <p class="lead mb-4">The refreshingly efficient QR code ordering tool for guests who don’t want to move.</p>
+        <a href="/tabletap/accounts/" class="btn btn-outline-primary btn-lg px-4">Get Started</a>
+    </div>
+</main>
+{% endblock %}

@@ -1,0 +1,27 @@
+{% extends "base.html" %}
+
+{% block restaurant_content %}
+<h2 class="mb-4">Table QR Codes</h2>
+
+<div class="container">
+    <div class="row row-cols-1 row-cols-md-3 g-4">
+        {% for table in tables %}
+        <div class="col">
+            <div class="card shadow-sm">
+                <div class="card-body text-center">
+                    <h5 class="card-title">Table {{ table.table_number }}</h5>
+                    <!-- qr code -->
+                    <img src="{% url 'generate_qr' restaurant.id table.id %}"
+                        alt="QR Code for Table {{ table.table_number }}" class="img-fluid">
+                </div>
+            </div>
+        </div>
+        {% endfor %}
+    </div>
+</div>
+
+{% if show_init_button %}
+<a href="{% url 'initialise_tables' restaurant.id %}" class="btn btn-primary mt-3">Initialize Tables</a>
+{% endif %}
+
+{% endblock %}

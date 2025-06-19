@@ -1,0 +1,304 @@
+{% extends "base.html" %}
+
+{% block title %}{{ menu.title }}{% endblock %}
+
+{% block restaurant_content %}
+<section class="py-5 w-100">
+    <div class="container">
+
+        <h2 class="mb-4">{{ menu.name }}</h2>
+
+        <!-- # ------------ Alert (timed) ------------ # -->
+        <div id="crudAlert" class="alert alert-dismissible fade show mt-2 d-none" role="alert">
+            <span id="crudAlertMsg"></span>
+            <button type="button" class="btn-close" data-bs-dismiss="alert"></button>
+        </div>
+
+        <!-- # ------------ Menu Items by Category ------------ # -->
+        <div id="categoriesWrapper">
+            {% for category in categories %}
+            <div class="category-block mb-5" data-category-id="{{ category.id }}">
+                <div class="d-flex justify-content-between align-items-center mt-5">
+                    <h4 class="category-name">{{ category.name }}</h4>
+                    <div>
+                        <button class="btn btn-sm btn-success add-item" data-category-id="{{ category.id }}">Add Item</button>
+                        <button class="btn btn-sm btn-warning edit-category" data-category-id="{{ category.id }}">Edit Category</button>
+                        <button class="btn btn-sm btn-danger delete-category" data-category-id="{{ category.id }}">Delete Category</button>
+                    </div>
+                </div>
+
+                <table class="table table-hover">
+                    <thead>
+                        <tr>
+                            <th>Item Name</th>
+                            <th>Description</th>
+                            <th class="text-end">Price ($)</th>
+                            <th class="text-end">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody class="itemTableBody">
+                        {% for item in category.items.all %}
+                        <tr data-id="{{ item.id }}" data-item-id="{{ item.id }}">
+                            <td class="item-name">{{ item.name }}</td>
+                            <td class="item-description">{{ item.description }}</td>
+                            <td class="item-price text-end">{{ item.price }}</td>
+                            <td class="text-end">
+                                <button class="btn btn-sm btn-warning me-1 edit-item">Edit</button>
+                                <button class="btn btn-sm btn-danger delete-item">Delete</button>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            {% empty %}
+            <table class="table">
+                <tbody>
+                    <tr>
+                        <td colspan="4"><em>No categories available yet</em></td>
+                    </tr>
+                </tbody>
+            </table>
+            {% endfor %}
+        </div>
+
+        <button class="btn btn-primary w-100 mb-4" id="addCategoryBtn">Add Category</button>
+
+        <!-- # ------------ Add/Edit Category Modal ------------ # -->
+        <div class="modal fade" id="categoryModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form id="categoryForm">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="categoryModalLabel">Add Category</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="categoryName" class="form-label fw-semibold">Category Name</label>
+                                <input type="text" class="form-control" id="categoryName" required>
+                            </div>
+                        </div>
+                        <input type="hidden" id="categoryId">
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- # ------------ Add/Edit Menu Item Modal ------------ # -->
+        <div class="modal fade" id="itemModal" tabindex="-1" aria-hidden="true">
+            <div class="modal-dialog">
+                <div class="modal-content">
+                    <form id="itemForm">
+                        <div class="modal-header">
+                            <h5 class="modal-title" id="itemModalLabel">Add Item</h5>
+                            <button type="button" class="btn-close" data-bs-dismiss="modal"></button>
+                        </div>
+                        <div class="modal-body">
+                            <div class="mb-3">
+                                <label for="itemName" class="form-label fw-semibold">Item Name</label>
+                                <input type="text" class="form-control" id="itemName" required>
+                            </div>
+                            <div class="mb-3">
+                                <label for="itemDescription" class="form-label fw-semibold">Description</label>
+                                <textarea class="form-control" id="itemDescription" rows="2"></textarea>
+                            </div>
+                            <div class="mb-3">
+                                <label for="itemPrice" class="form-label fw-semibold">Price ($)</label>
+                                <input type="number" step="0.01" class="form-control" id="itemPrice" required>
+                            </div>
+                        </div>
+                        <input type="hidden" id="itemId">
+                        <input type="hidden" id="itemCategoryId">
+                        <div class="modal-footer">
+                            <button type="button" class="btn btn-secondary" data-bs-dismiss="modal">Cancel</button>
+                            <button type="submit" class="btn btn-primary">Save</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+
+        <!-- # ------------ <template> for menu item ------------ # -->
+        <template id="itemRowTmpl">
+            <tr>
+                <td class="item-name"></td>
+                <td class="item-description"></td>
+                <td class="item-price text-end"></td>
+                <td class="text-end">
+                    <button class="btn btn-sm btn-warning me-1 edit-item">Edit</button>
+                    <button class="btn btn-sm btn-danger delete-item">Delete</button>
+                </td>
+            </tr>
+        </template>
+    </div>
+</section>
+
+<script type="module">
+    const API = {
+        cat: "/tabletap/api/categories/",
+        item: "/tabletap/api/menu-items/",
+    };
+    const MENU_ID = "{{ menu.id }}";
+    const CSRF_TOKEN = "{{ csrf_token }}";
+
+    const crudAlert = document.getElementById("crudAlert");
+    const crudAlertMsg = document.getElementById("crudAlertMsg");
+    const modalCat = bootstrap.Modal.getOrCreateInstance(document.getElementById("categoryModal"));
+    const modalItem = bootstrap.Modal.getOrCreateInstance(document.getElementById("itemModal"));
+
+    const catForm = document.getElementById("categoryForm");
+    const itemForm = document.getElementById("itemForm");
+
+    const catId = document.getElementById("categoryId");
+    const catName = document.getElementById("categoryName");
+
+    const itemId = document.getElementById("itemId");
+    const itemName = document.getElementById("itemName");
+    const itemDescription = document.getElementById("itemDescription");
+    const itemPrice = document.getElementById("itemPrice");
+    const itemCategory = document.getElementById("itemCategoryId");
+
+    const itemRowTmpl = document.getElementById("itemRowTmpl");
+
+    function alertMsg(txt, ok = true) {
+        crudAlertMsg.textContent = txt;
+        crudAlert.classList.remove("d-none", "alert-success", "alert-danger");
+        crudAlert.classList.add(ok ? "alert-success" : "alert-danger");
+        setTimeout(() => crudAlert.classList.add("d-none"), 5000);
+    }
+
+    function getOpts(method, body = null) {
+        return {
+            method,
+            headers: {
+                "Content-Type": "application/json",
+                "X-CSRFToken": CSRF_TOKEN,
+            },
+            body: body ? JSON.stringify(body) : null,
+        };
+    }
+
+    document.addEventListener("click", async (e) => {
+        // Add Category
+        if (e.target.id === "addCategoryBtn") {
+            catId.value = "";
+            catName.value = "";
+            modalCat.show();
+        }
+
+        // Add Item
+        if (e.target.classList.contains("add-item")) {
+            itemId.value = "";
+            itemName.value = "";
+            itemDescription.value = "";
+            itemPrice.value = "";
+            itemCategory.value = e.target.dataset.categoryId;
+            modalItem.show();
+        }
+
+        // Edit Item
+        if (e.target.classList.contains("edit-item")) {
+            const tr = e.target.closest("tr");
+            const id = tr.dataset.itemId;
+            const res = await fetch(`${API.item}${id}/`);
+            const data = await res.json();
+
+            itemId.value = data.id;
+            itemName.value = data.name;
+            itemDescription.value = data.description;
+            itemPrice.value = data.price;
+            itemCategory.value = data.category;
+
+            modalItem.show();
+        }
+
+        // Delete Item
+        if (e.target.classList.contains("delete-item")) {
+            if (!confirm("Delete this item?")) return;
+            const tr = e.target.closest("tr");
+            const id = tr.dataset.itemId;
+            try {
+                const res = await fetch(`${API.item}${id}/`, getOpts("DELETE"));
+                if (!res.ok) throw Error();
+                tr.remove();
+                alertMsg("Deleted ✔");
+            } catch {
+                alertMsg("Delete failed ❌", false);
+            }
+        }
+
+        // Edit Category
+        if (e.target.classList.contains("edit-category")) {
+            const categoryId = e.target.dataset.categoryId;
+            const res = await fetch(`${API.cat}${categoryId}/`);
+            const data = await res.json();
+
+            catId.value = data.id;
+            catName.value = data.name;
+            modalCat.show();
+        }
+
+        // Delete Category
+        if (e.target.classList.contains("delete-category")) {
+            const categoryId = e.target.dataset.categoryId;
+            if (!confirm("Delete this category and all its items?")) return;
+
+            try {
+                const res = await fetch(`${API.cat}${categoryId}/`, getOpts("DELETE"));
+                if (!res.ok) throw Error();
+                location.reload(); // or remove the category block dynamically
+            } catch {
+                alertMsg("Category delete failed ❌", false);
+            }
+        }
+    });
+
+    catForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const id = catId.value;
+        const method = id ? "PUT" : "POST";
+        const url = id ? `${API.cat}${id}/` : API.cat;
+
+        const body = {
+            name: catName.value,
+            menu: MENU_ID,
+        };
+
+        try {
+            const res = await fetch(url, getOpts(method, body));
+            if (!res.ok) throw Error();
+            location.reload();
+        } catch {
+            alertMsg("Category save failed ❌", false);
+        }
+    };
+
+    itemForm.onsubmit = async (e) => {
+        e.preventDefault();
+        const id = itemId.value;
+        const method = id ? "PUT" : "POST";
+        const url = id ? `${API.item}${id}/` : API.item;
+
+        const body = {
+            name: itemName.value,
+            description: itemDescription.value,
+            price: itemPrice.value,
+            category: itemCategory.value,
+        };
+
+        try {
+            const res = await fetch(url, getOpts(method, body));
+            if (!res.ok) throw Error();
+            location.reload();
+        } catch {
+            alertMsg("Item save failed ❌", false);
+        }
+    };
+</script>
+
+{% endblock %}
